@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>♿ 휠체어 이동 체험 3D - 강승희</title>
+<!-- Three.js 3D 라이브러리 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background: linear-gradient(180deg, #dff3fb 0%, #f4f6f8 40%);
+    color: #29323c;
+  }
+  .container { max-width: 1000px; margin: 0 auto; padding: 18px 16px 40px; }
+
+  /* ---------- 화면(스크린) 전환 ---------- */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ---------- 1. 타이틀 화면 ---------- */
+  #titleScreen.active {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    min-height: 92vh; text-align: center; cursor: pointer; user-select: none;
+  }
+  #titleScreen .emoji { font-size: 4.2rem; margin-bottom: 18px; animation: bob 2.4s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  #titleScreen h1 { font-size: 2.6rem; font-weight: 900; color: #263238; letter-spacing: -1px; }
+  #titleScreen .subtitle { margin-top: 20px; font-size: 1.25rem; font-weight: 700; color: #37474f; line-height: 1.7; }
+  #titleScreen .byline { margin-top: 14px; font-size: 0.95rem; color: #90a4ae; }
+  #titleScreen .press {
+    margin-top: 52px; font-size: 0.95rem; color: #607d8b; font-weight: bold;
+    animation: blink 1.6s ease-in-out infinite;
+    background: #fff; padding: 12px 26px; border-radius: 999px; box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* ---------- 2. 맵 선택 화면 ---------- */
+  #selectScreen h2 { font-size: 1.5rem; font-weight: 900; color: #263238; text-align: center; margin: 8px 0 4px; }
+  #selectScreen .select-sub { text-align: center; font-size: 0.9rem; color: #78909c; margin-bottom: 16px; line-height: 1.6; }
+  .select-layout { display: flex; gap: 16px; align-items: stretch; }
+  @media (max-width: 760px) { .select-layout { flex-direction: column; } }
+  #map {
+    position: relative; flex: 1.5; min-height: 440px; border-radius: 16px;
+    background: linear-gradient(180deg, #cfe9f7 0%, #bcdff2 100%);
+    overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  #map svg { width: 100%; height: 100%; display: block; }
+  .map-pin { cursor: pointer; }
+  .map-pin circle.dot { stroke: #fff; stroke-width: 2.5; transition: r 0.15s ease; }
+  .map-pin:hover circle.dot, .map-pin.active circle.dot { r: 10; }
+  .map-pin .ring { fill: none; stroke-width: 2; opacity: 0.9; animation: pulse 1.8s ease-out infinite; }
+  @keyframes pulse { 0% { r: 8; opacity: 0.9; } 100% { r: 20; opacity: 0; } }
+  .legend {
+    position: absolute; left: 12px; bottom: 12px; background: rgba(255,255,255,0.92);
+    border-radius: 10px; padding: 10px 14px; font-size: 0.78rem; line-height: 1.8; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .legend .dotc { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  #spotPanel {
+    flex: 1; background: #fff; border-radius: 16px; padding: 22px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: flex; flex-direction: column;
+    min-height: 440px;
+  }
+  #spotPanel .placeholder { color: #b0bec5; text-align: center; margin: auto; font-size: 0.95rem; line-height: 1.8; }
+  #spotPanel .spot-name { font-size: 1.3rem; font-weight: 900; color: #263238; }
+  #spotPanel .badges { margin: 10px 0 14px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 0.75rem; font-weight: bold; padding: 5px 12px; border-radius: 999px; color: #fff; }
+  .badge.playable-badge { background: #5c6bc0; }
+  #spotPanel .spot-info { font-size: 0.92rem; line-height: 1.8; color: #455a64; flex: 1; }
+  #spotPanel .spot-info b { color: #263238; }
+  #playBtn {
+    margin-top: 16px; padding: 15px; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, #ffb300, #ff8f00); color: #3e2723;
+    font-size: 1.05rem; font-weight: 900; cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 12px rgba(255,143,0,0.35); transition: transform 0.12s ease;
+    display: none;
+  }
+  #playBtn:hover { transform: translateY(-2px); }
+  .map-note { font-size: 0.78rem; color: #90a4ae; margin-top: 12px; text-align: center; line-height: 1.6; }
+  .back { display: block; text-align: center; margin: 26px 0 0; color: #607d8b; font-size: 0.88rem; }
+
+  /* ---------- 3. 게임 화면 ---------- */
+  #gameScreen .game-wrap { position: relative; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+  #gameCanvas { width: 100%; height: 540px; display: block; background: #cfe8f5; cursor: crosshair; }
+  @media (max-width: 700px) { #gameCanvas { height: 420px; } }
+
+  .hud-top {
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    pointer-events: none;
+  }
+  .chip {
+    background: rgba(0,0,0,0.55); color: #fff; padding: 8px 14px;
+    border-radius: 999px; font-size: 0.85rem; line-height: 1.5; font-weight: bold;
+  }
+  .hud-buttons { display: flex; gap: 6px; pointer-events: auto; align-items: center; }
+  .round-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(255,255,255,0.92); font-size: 1.05rem; font-weight: 900; color: #37474f;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .round-btn:hover { background: #fff; }
+  .pill-btn {
+    border: none; border-radius: 999px; padding: 10px 15px; cursor: pointer;
+    font-size: 0.82rem; font-weight: 900; font-family: inherit; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  #modeBtn { background: #ffb300; color: #4e342e; }
+  #homeBtn { background: rgba(255,255,255,0.92); color: #37474f; }
+
+  /* 게이지 */
+  #gaugeWrap {
+    position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%);
+    width: min(380px, 76%); display: none; text-align: center;
+  }
+  #gaugeWrap .gauge-label {
+    display: inline-block; background: rgba(0,0,0,0.6); color: #fff; font-size: 0.8rem;
+    font-weight: 900; padding: 5px 14px; border-radius: 999px; margin-bottom: 7px;
+    animation: shake 0.5s ease-in-out infinite;
+  }
+  @keyframes shake { 0%,100% { transform: rotate(-1.5deg); } 50% { transform: rotate(1.5deg); } }
+  #gaugeBar {
+    height: 20px; background: rgba(0,0,0,0.5); border-radius: 999px; overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.85);
+  }
+  #gaugeFill { height: 100%; width: 100%; background: linear-gradient(90deg, #66bb6a, #9ccc65); border-radius: 999px; transition: width 0.08s linear; }
+  #gaugeFill.warn { background: linear-gradient(90deg, #ffa726, #ffca28); }
+  #gaugeFill.danger { background: linear-gradient(90deg, #ef5350, #e53935); }
+
+  #message {
+    position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+    background: rgba(198, 40, 40, 0.92); color: #fff; padding: 12px 20px;
+    border-radius: 12px; font-size: 0.92rem; max-width: 88%; text-align: center;
+    display: none; line-height: 1.5; font-weight: bold;
+  }
+  #message.info { background: rgba(46, 125, 50, 0.92); }
+
+  /* 시작 안내 토스트 */
+  #introToast {
+    position: absolute; inset: 0; background: rgba(20,28,34,0.78); color: #fff;
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; padding: 28px; z-index: 6;
+  }
+  #introToast .it-mission { font-size: 1.25rem; font-weight: 900; margin-bottom: 16px; }
+  #introToast .it-controls { font-size: 0.92rem; line-height: 2; color: #cfd8dc; }
+  #introToast .it-controls b { color: #ffd54f; }
+  #introToast .it-go { margin-top: 22px; font-size: 0.88rem; color: #90a4ae; animation: blink 1.6s ease-in-out infinite; }
+
+  /* 성공 패널 */
+  #successPanel {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.78);
+    display: none; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; color: #fff; padding: 30px; z-index: 7;
+  }
+  #successPanel h3 { font-size: 1.6rem; margin-bottom: 14px; font-weight: 900; }
+  #successPanel p { font-size: 0.98rem; line-height: 1.85; max-width: 540px; }
+  #successPanel .btn-row { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #successPanel button {
+    padding: 13px 26px; border: none; border-radius: 999px; font-size: 0.95rem;
+    font-weight: 900; cursor: pointer; font-family: inherit;
+  }
+  #successPanel .btn-retry { background: #ffb300; color: #3e2723; }
+  #successPanel .btn-select { background: rgba(255,255,255,0.9); color: #37474f; }
+
+  /* 모달 (? 조작법, ! 미션) */
+  .modal {
+    position: absolute; inset: 0; background: rgba(20,28,34,0.72); z-index: 8;
+    display: none; justify-content: center; align-items: center; padding: 24px;
+  }
+  .modal .modal-card {
+    background: #fff; border-radius: 16px; padding: 26px; max-width: 440px; width: 100%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal h4 { font-size: 1.15rem; font-weight: 900; color: #263238; margin-bottom: 14px; }
+  .modal .modal-body { font-size: 0.9rem; line-height: 2; color: #455a64; }
+  .modal .modal-body b { color: #263238; background: #fff3d6; padding: 1px 7px; border-radius: 6px; }
+  .modal .modal-close {
+    margin-top: 18px; width: 100%; padding: 12px; border: none; border-radius: 10px;
+    background: #37474f; color: #fff; font-weight: 900; font-size: 0.9rem; cursor: pointer; font-family: inherit;
+  }
+
+  /* 로딩 오류 */
+  #loadError {
+    display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.85); color: #fff;
+    align-items: center; justify-content: center; text-align: center; padding: 24px;
+    font-size: 0.95rem; line-height: 1.6; z-index: 9;
+  }
+
+  /* 터치 조작 (모바일) */
+  .touch-pad { position: absolute; bottom: 12px; right: 12px; display: grid; grid-template-columns: repeat(3, 46px); gap: 4px; z-index: 5; }
+  .touch-pad button {
+    width: 46px; height: 46px; border: none; border-radius: 12px;
+    background: rgba(255,255,255,0.82); font-size: 1.1rem; cursor: pointer;
+    touch-action: none; user-select: none; font-weight: 900;
+  }
+  .touch-pad .blank { visibility: hidden; }
+  #spaceTouch {
+    position: absolute; bottom: 12px; left: 12px; z-index: 5;
+    width: 88px; height: 88px; border: none; border-radius: 50%;
+    background: rgba(255,179,0,0.92); color: #4e342e; font-size: 0.95rem; font-weight: 900;
+    cursor: pointer; touch-action: none; user-select: none; font-family: inherit;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ==================== 1. 타이틀 화면 ==================== -->
+  <div class="screen active" id="titleScreen">
+    <div class="emoji">♿</div>
+    <h1>휠체어 이동 체험 3D</h1>
+    <p class="subtitle">계단 한 칸이 누군가에게는 절벽이에요.<br>직접 휠체어를 몰고 전망대까지 가보세요</p>
+    <p class="byline">만든 사람: 강승희</p>
+    <p class="press">🖱️ 아무 버튼이나 눌러서 시작하기 ⌨️</p>
+  </div>
+
+  <!-- ==================== 2. 맵 선택 화면 ==================== -->
+  <div class="screen" id="selectScreen">
+    <h2>🗺️ 어디로 떠나볼까요?</h2>
+    <p class="select-sub">핀을 눌러 접근성 정보를 확인하세요. <b>테두리가 반짝이는 곳</b>은 직접 플레이할 수 있어요!<br>접근성이 어려운 곳일수록 난이도가 올라가요 🔥</p>
+    <div class="select-layout">
+      <div id="map"></div>
+      <div id="spotPanel">
+        <p class="placeholder">👈 지도의 핀을 눌러보세요!<br><br>🟢 접근성 좋음<br>🟠 일부 구간만 가능<br>🔴 접근 어려움</p>
+      </div>
+    </div>
+    <p class="map-note">※ 접근성 정보는 제주관광약자접근성안내센터 포털 '이지제주(easyjeju.net)' 등의 공개 자료를 참고해 학습용으로 재구성한 예시예요.<br>실제 방문 전에는 이지제주에서 최신 정보를 꼭 확인하세요.</p>
+    <a class="back" href="../index.html">← 전체 프로젝트 목록으로</a>
+  </div>
+
+  <!-- ==================== 3. 게임 화면 ==================== -->
+  <div class="screen" id="gameScreen">
+    <div class="game-wrap">
+      <canvas id="gameCanvas"></canvas>
+
+      <div class="hud-top">
+        <div class="chip" id="statText">🧑‍🦽 · ⏱️ 0.0초</div>
+        <div class="hud-buttons">
+          <button class="pill-btn" id="modeBtn" onclick="toggleMode()">🚶 도보로</button>
+          <button class="pill-btn" id="homeBtn" onclick="goSelect()">🗺️ 맵 선택</button>
+          <button class="round-btn" onclick="openModal('helpModal')" title="조작법">?</button>
+          <button class="round-btn" onclick="openModal('missionModal')" title="미션">!</button>
+        </div>
+      </div>
+
+      <div id="gaugeWrap">
+        <span class="gauge-label">💪 스페이스 연타! 게이지가 닳고 있어요!</span>
+        <div id="gaugeBar"><div id="gaugeFill"></div></div>
+      </div>
+
+      <div id="message"></div>
+
+      <button id="spaceTouch">💪 밀기!</button>
+      <div class="touch-pad">
+        <button class="blank"></button>
+        <button data-key="up">▲</button>
+        <button class="blank"></button>
+        <button data-key="left">◀</button>
+        <button data-key="down">▼</button>
+        <button data-key="right">▶</button>
+      </div>
+
+      <div id="introToast">
+        <div class="it-mission" id="introMission"></div>
+        <div class="it-controls">
+          <b>W A S D / 방향키</b> 이동 · <b>마우스</b> 시점 (화면 클릭 시 마우스 잠금)<br>
+          경사로에서는 <b>스페이스 연타</b>로 휠체어를 밀어야 해요!<br>
+          조작법은 우측 상단 <b>?</b> · 미션은 <b>!</b> 에서 언제든 다시 볼 수 있어요
+        </div>
+        <div class="it-go">아무 키나 눌러서 출발! 🏁</div>
+      </div>
+
+      <div id="successPanel">
+        <h3 id="successTitle"></h3>
+        <p id="successText"></p>
+        <div class="btn-row">
+          <button class="btn-retry" onclick="resetGame()">↺ 다시하기</button>
+          <button class="btn-select" onclick="goSelect()">🗺️ 다른 맵 고르기</button>
+        </div>
+      </div>
+
+      <div class="modal" id="helpModal">
+        <div class="modal-card">
+          <h4>❓ 조작법</h4>
+          <div class="modal-body">
+            <b>W A S D / 방향키</b> — 이동 · 회전<br>
+            <b>마우스</b> — 시점 조작 (화면 클릭하면 마우스 잠금, ESC로 해제)<br>
+            <b>스페이스 연타</b> — 경사로에서 휠체어 밀기 💪<br>
+            게이지가 바닥나면 뒤로 주르륵 미끄러져요!<br>
+            <b>🚶/🧑‍🦽 버튼</b> — 도보 ↔ 휠체어 모드 전환
+          </div>
+          <button class="modal-close" onclick="closeModal('helpModal')">닫기</button>
+        </div>
+      </div>
+
+      <div class="modal" id="missionModal">
+        <div class="modal-card">
+          <h4>❗ 미션</h4>
+          <div class="modal-body" id="missionBody"></div>
+          <button class="modal-close" onclick="closeModal('missionModal')">닫기</button>
+        </div>
+      </div>
+
+      <div id="loadError"></div>
+    </div>
+    <p class="map-note" style="margin-top:10px;">💡 먼저 🚶 도보 모드로 가보고, 그다음 🧑‍🦽 휠체어 모드로 같은 길을 가보세요. 같은 장소가 완전히 다르게 느껴질 거예요!</p>
+  </div>
+
+</div>
+
+<script>
+// ==========================================================
+// ♿ 휠체어 이동 체험 3D - 게임 엔진
+// 화면 흐름: 타이틀 → 맵 선택 → 플레이
+// ==========================================================
+
+// ---------- 화면 전환 ----------
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+  document.getElementById(id).classList.add("active");
+}
+
+// ---------- 오류 안내 ----------
+function showLoadError(text) {
+  const el = document.getElementById("loadError");
+  el.textContent = "⚠️ " + text;
+  el.style.display = "flex";
+}
+window.addEventListener("error", function (e) {
+  if (!window.__gameStarted) {
+    showLoadError("3D 체험을 불러오는 중 문제가 생겼어요: " + (e.message || "알 수 없는 오류"));
+  }
+});
+
+// ==========================================================
+// 맵 정의: 접근성이 나쁠수록 게이지가 빨리 닳고, 경사로가 멀고 가팔라요
+// ==========================================================
+const MAPS = {
+  hamdeok: {
+    name: "함덕해수욕장 무장애 데크길",
+    diff: "하", diffColor: "#43a047", diffLabel: "접근성 좋음 😊",
+    curbH: 0.08,        // 낮은 턱
+    cutX: 5,            // 턱 경사로가 메인 경사로와 일직선으로 연결!
+    rampX: 5, rampZ0: 6, rampW: 5,  // 넓고(5m) 완만한(20m에 2m, 10%) 경사로
+    drain: 0.1, pump: 7,
+    theme: "beach",
+    mission: "무장애 데크 경사로를 따라 해변 전망 데크의 깃발 🚩까지 가세요!",
+    hint: "노란 턱 경사로가 바로 앞에, 초록 경사로도 살짝 오른쪽에 있어요.",
+    successWheel: "완만하고 넓은 경사로 덕분에 크게 힘들지 않았죠?<br>잘 만든 무장애 시설은 <b>이렇게 자연스럽게 스며들어요.</b><br>휠체어 이용자도, 유아차도, 어르신도 모두가 편해져요.",
+  },
+  seongsan: {
+    name: "성산일출봉 전망 데크",
+    diff: "중", diffColor: "#fb8c00", diffLabel: "일부 구간만 가능 🤔",
+    curbH: 0.15,
+    cutX: 14,           // 턱 경사로가 오른쪽으로 14m 떨어져 있음
+    rampX: 10, rampZ0: 0, rampW: 4, // 14m에 2m (약 14%) - 기준보다 가파름
+    drain: 0.45, pump: 7,
+    theme: "seongsan",
+    mission: "정상 전망 데크의 깃발 🚩까지 가세요! 경사로는 있지만... 조금 가파르고 멀어요.",
+    hint: "턱 경사로는 오른쪽 멀리(노란색), 전망대 경사로는 오른쪽(초록색)에 있어요.",
+    successWheel: "경사로가 '있긴' 했지만 멀고 가팔랐죠?<br>기준(기울기 1/12)에 못 미치는 경사로는 <b>있어도 쓰기 힘들어요.</b><br>'설치했다'와 '쓸 수 있다'는 다르다는 것, 느껴지셨나요?",
+  },
+  dongmun: {
+    name: "동문시장 구시가지 골목",
+    diff: "상", diffColor: "#e53935", diffLabel: "접근 어려움 😰",
+    curbH: 0.2,         // 높은 턱!
+    cutX: -24,          // 턱 경사로가 왼쪽 끝에...
+    rampX: 24, rampZ0: -4, rampW: 3, // ...경사로는 오른쪽 끝, 10m에 2m (20%!) 좁고 가파름
+    drain: 0.95, pump: 8,
+    theme: "market",
+    mission: "시장 안쪽 상가 2층 입구의 깃발 🚩까지 가세요! 경고: 경사로 상태가 매우 나빠요...",
+    hint: "턱 경사로는 왼쪽 끝(노란색), 건물 경사로는 오른쪽 끝(초록색). 완전 반대편이에요!",
+    successWheel: "왼쪽 끝까지 갔다가 다시 오른쪽 끝까지... 그리고 팔이 빠질 듯한 경사로까지.<br>비장애인이 10초면 가는 길이 누군가에게는 <b>이렇게 긴 여정</b>이에요.<br>이것이 바로 이동권이 '권리'인 이유입니다.",
+  },
+};
+
+// 공통 지형 상수: 전망대(x -8~8, z -26~-14, 높이 2+턱), 계단(x -3~3, z -14~-9)
+function makeHeightFn(cfg) {
+  return function (x, z) {
+    let h = (z < 6) ? cfg.curbH : 0;
+    // 턱 경사로 (cutX 주변)
+    if (x >= cfg.cutX - 2 && x <= cfg.cutX + 2 && z >= 6 && z <= 8) {
+      h = cfg.curbH * (8 - z) / 2;
+    }
+    // 전망대 (경사로 꼭대기까지 이어지는 연결 데크 포함)
+    const platMaxX = Math.max(8, cfg.rampX + cfg.rampW / 2);
+    if (x >= -8 && x <= platMaxX && z >= -26 && z <= -14) h = 2 + cfg.curbH;
+    // 계단 5칸
+    if (x >= -3 && x <= 3 && z > -14 && z <= -9) {
+      const i = Math.floor(-9 - z);
+      h = Math.max(h, cfg.curbH + 0.4 * (i + 1));
+    }
+    // 메인 경사로: rampZ0에서 z=-14까지 서서히 0→2m 상승
+    const hw = cfg.rampW / 2;
+    if (x >= cfg.rampX - hw && x <= cfg.rampX + hw && z <= cfg.rampZ0 && z >= -14.5) {
+      const t = Math.min(1, (cfg.rampZ0 - z) / (cfg.rampZ0 + 14));
+      h = Math.max(h, cfg.curbH + 2 * t);
+    }
+    return h;
+  };
+}
+function makeIsRampFn(cfg) {
+  return function (x, z) {
+    const hw = cfg.rampW / 2 + 0.2;
+    return x >= cfg.rampX - hw && x <= cfg.rampX + hw && z <= cfg.rampZ0 && z >= -14.5;
+  };
+}
+
+// ==========================================================
+// Three.js 기본 세팅
+// ==========================================================
+const canvas = document.getElementById("gameCanvas");
+
+if (typeof THREE === "undefined") {
+  showLoadError("Three.js 라이브러리를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침 해보세요.");
+  throw new Error("THREE is not defined");
+}
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+} catch (err) {
+  showLoadError("이 브라우저/기기에서 3D(WebGL)를 지원하지 않는 것 같아요.");
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+if (THREE.ACESFilmicToneMapping) {
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xcfe8f5);
+scene.fog = new THREE.Fog(0xcfe8f5, 60, 220);
+
+const camera = new THREE.PerspectiveCamera(60, 2, 0.1, 500);
+
+const sun = new THREE.DirectionalLight(0xfff3d6, 1.15);
+sun.position.set(25, 45, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 130;
+sun.shadow.bias = -0.0015;
+scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x6fae5e, 0.65));
+
+// 하늘 그라데이션 돔 (모든 맵 공통)
+const skyGeo = new THREE.SphereGeometry(300, 24, 16);
+const skyColors = [];
+const skyPos = skyGeo.attributes.position;
+const skyTop = new THREE.Color(0x4a90d9), skyBottom = new THREE.Color(0xdff3fb);
+for (let i = 0; i < skyPos.count; i++) {
+  const t = THREE.MathUtils.clamp((skyPos.getY(i) + 300) / 600, 0, 1);
+  const c = skyBottom.clone().lerp(skyTop, Math.pow(t, 0.55));
+  skyColors.push(c.r, c.g, c.b);
+}
+skyGeo.setAttribute("color", new THREE.Float32BufferAttribute(skyColors, 3));
+scene.add(new THREE.Mesh(skyGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false })));
+
+// 맵 전용 오브젝트는 전부 이 그룹에 넣고, 맵 바뀔 때 통째로 비움
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
+
+// ---------- 재질 헬퍼 ----------
+function mat(color, rough, metal) {
+  return new THREE.MeshStandardMaterial({ color: color, roughness: rough === undefined ? 0.85 : rough, metalness: metal || 0 });
+}
+function box(w, h, d, m, x, y, z) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  worldGroup.add(mesh);
+  return mesh;
+}
+
+// ==========================================================
+// 맵 만들기
+// ==========================================================
+let currentMap = null;
+let heightAt = function () { return 0; };
+let isRampAt = function () { return false; };
+
+function buildMap(cfg) {
+  // 기존 맵 비우기
+  while (worldGroup.children.length) {
+    const c = worldGroup.children.pop();
+    if (c.geometry) c.geometry.dispose();
+  }
+
+  const T = {
+    beach:    { ground: 0xf0e0b8, road: 0xf7ecd2, platform: 0xd7b98e, step: 0xcaa878, ramp: 0x81c784, field: 0xf0e0b8, ocean: 0x45a0d6 },
+    seongsan: { ground: 0xcfd8dc, road: 0x8d9aa5, platform: 0xa1887f, step: 0xbcaaa4, ramp: 0x81c784, field: 0x6fae5e, ocean: 0x4a90c4 },
+    market:   { ground: 0xb8b2ab, road: 0x74716c, platform: 0x9c8b7a, step: 0xab9887, ramp: 0x7cb342, field: 0xa8a39c, ocean: 0x4a90c4 },
+  }[cfg.theme];
+
+  // 바닥 (도로/광장)
+  box(80, 0.02, 34, mat(T.road, 0.95), 0, 0.01, 23).castShadow = false;
+  // 인도 (턱 위)
+  box(80, cfg.curbH, 46, mat(T.ground, 0.9), 0, cfg.curbH / 2, -17).castShadow = false;
+
+  // 턱 경사로 (노란색)
+  const cut = box(4, 0.05, 2.2, mat(0xffd54f, 0.7), cfg.cutX, cfg.curbH / 2, 7);
+  cut.rotation.x = Math.atan2(cfg.curbH, 2);
+
+  // 전망대 + 트림
+  box(16, 2, 12, mat(T.platform), 0, 1 + cfg.curbH / 2, -20);
+  box(16.3, 0.12, 12.3, mat(0x8d6e63, 0.8), 0, 2 + cfg.curbH + 0.01, -20);
+
+  // 경사로 꼭대기와 전망대를 잇는 연결 데크 (경사로가 옆으로 떨어져 있을 때)
+  const platMaxX = cfg.rampX + cfg.rampW / 2;
+  if (platMaxX > 8) {
+    const deckW = platMaxX - 8;
+    box(deckW, 2, 12, mat(T.platform), 8 + deckW / 2, 1 + cfg.curbH / 2, -20);
+    box(deckW + 0.3, 0.12, 12.3, mat(0x8d6e63, 0.8), 8 + deckW / 2, 2 + cfg.curbH + 0.01, -20);
+  }
+
+  // 계단 5칸
+  for (let i = 0; i < 5; i++) {
+    box(6, 0.4 * (i + 1), 1, mat(T.step), 0, cfg.curbH + 0.2 * (i + 1), -9.5 - i);
+  }
+
+  // 메인 경사로 (초록) - 이동 방향(북쪽)으로 오르막
+  const rampLen = cfg.rampZ0 + 14;
+  const slope = Math.atan2(2, rampLen);
+  const rampMesh = box(cfg.rampW, 0.15, Math.sqrt(rampLen * rampLen + 4) + 0.4, mat(T.ramp),
+    cfg.rampX, cfg.curbH + 1, (cfg.rampZ0 - 14) / 2);
+  rampMesh.rotation.x = slope;
+
+  // 난간 + 기둥
+  for (const side of [-1, 1]) {
+    const rx = cfg.rampX + side * (cfg.rampW / 2 - 0.1);
+    const rail = box(0.07, 0.07, Math.sqrt(rampLen * rampLen + 4) + 0.4, mat(0x607d8b, 0.6), rx, cfg.curbH + 1.95, (cfg.rampZ0 - 14) / 2);
+    rail.rotation.x = slope;
+    for (let zz = cfg.rampZ0; zz >= -14; zz -= 3.5) {
+      const t = (cfg.rampZ0 - zz) / rampLen;
+      box(0.06, 0.9, 0.06, mat(0x546e7a, 0.6), rx, cfg.curbH + 2 * t + 0.45, zz);
+    }
+  }
+
+  // 목표 깃발
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3), mat(0xeeeeee, 0.4, 0.3));
+  pole.position.set(0, 2 + cfg.curbH + 1.5, -20);
+  pole.castShadow = true;
+  worldGroup.add(pole);
+  box(1.4, 0.8, 0.05, mat(0xe53935, 0.7), 0.75, 2 + cfg.curbH + 2.6, -20);
+
+  // ---------- 테마별 배경 ----------
+  // 넓은 대지
+  const field = new THREE.Mesh(new THREE.CircleGeometry(140, 48), mat(T.field, 1));
+  field.rotation.x = -Math.PI / 2;
+  field.position.set(0, -0.35, -10);
+  field.receiveShadow = true;
+  worldGroup.add(field);
+  // 저 멀리 바다
+  const ocean = new THREE.Mesh(new THREE.CircleGeometry(400, 48), new THREE.MeshStandardMaterial({ color: T.ocean, roughness: 0.4, metalness: 0.1 }));
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.position.set(0, -18, -10);
+  worldGroup.add(ocean);
+
+  if (cfg.theme === "seongsan") {
+    // 분화구 능선 (정상에 서 있는 느낌)
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(115, 14, 12, 48), mat(0x5a9457, 1));
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(0, -2, -10);
+    worldGroup.add(rim);
+  } else if (cfg.theme === "beach") {
+    // 파라솔들
+    for (const [ux, uz, uc] of [[-18, 2, 0xef5350], [-26, -6, 0x42a5f5], [20, 14, 0xffca28], [-14, 14, 0x66bb6a]]) {
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.4), mat(0xeeeeee, 0.5));
+      stick.position.set(ux, 1.2, uz); stick.castShadow = true; worldGroup.add(stick);
+      const top = new THREE.Mesh(new THREE.ConeGeometry(1.5, 0.8, 10), mat(uc, 0.8));
+      top.position.set(ux, 2.5, uz); top.castShadow = true; worldGroup.add(top);
+    }
+    // 가까운 바다 (해변이니까!)
+    const shore = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), new THREE.MeshStandardMaterial({ color: 0x53b0e0, roughness: 0.35, metalness: 0.1 }));
+    shore.rotation.x = -Math.PI / 2;
+    shore.position.set(0, -0.15, 55);
+    worldGroup.add(shore);
+  } else if (cfg.theme === "market") {
+    // 시장 상점들 (알록달록 차양막)
+    const awn = [0xef5350, 0xffb300, 0x66bb6a, 0x42a5f5, 0xab47bc];
+    for (let i = 0; i < 6; i++) {
+      const bx = -30 + i * 12;
+      if (Math.abs(bx - cfg.rampX) < 8 || Math.abs(bx) < 10) continue; // 경사로/계단 가리지 않게
+      box(7, 4, 5, mat(0xd7ccc8, 0.9), bx, cfg.curbH + 2, -30);
+      const aw = box(7.6, 0.15, 2.4, mat(awn[i % awn.length], 0.8), bx, cfg.curbH + 3.4, -26.8);
+      aw.rotation.x = -0.25;
+    }
+    // 좌판들
+    for (const [sx, sz] of [[-14, 0], [-20, -2], [18, 2], [-8, 3]]) {
+      box(2.2, 0.8, 1.2, mat(0x8d6e63, 0.9), sx, cfg.curbH + 0.4, sz);
+      box(2.4, 0.08, 1.4, mat(0xffb74d, 0.8), sx, cfg.curbH + 0.85, sz);
+    }
+  }
+
+  heightAt = makeHeightFn(cfg);
+  isRampAt = makeIsRampFn(cfg);
+  currentMap = cfg;
+}
+
+// ==========================================================
+// 주인공 (공통, 한 번만 생성)
+// ==========================================================
+const player = new THREE.Group();
+const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.4), mat(0x1976d2, 0.6));
+pBody.position.y = 0.85; pBody.castShadow = true; player.add(pBody);
+const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), mat(0xffcc80, 0.7));
+pHead.position.y = 1.45; pHead.castShadow = true; player.add(pHead);
+
+const wheelchairParts = new THREE.Group();
+const wheelMat = mat(0x333333, 0.5, 0.2);
+const spokeMat = mat(0xbbbbbb, 0.4, 0.6);
+for (const side of [-0.35, 0.35]) {
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 10, 28), wheelMat);
+  wheel.position.set(side, 0.32, 0.1); wheel.rotation.y = Math.PI / 2; wheel.castShadow = true;
+  wheelchairParts.add(wheel);
+  for (let s = 0; s < 5; s++) {
+    const spoke = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6), spokeMat);
+    spoke.position.set(side, 0.32, 0.1);
+    spoke.rotation.z = (Math.PI / 5) * s; spoke.rotation.x = Math.PI / 2;
+    wheelchairParts.add(spoke);
+  }
+  const caster = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), wheelMat);
+  caster.position.set(side * 0.6, 0.08, -0.3); caster.castShadow = true;
+  wheelchairParts.add(caster);
+}
+const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.5), mat(0x555555, 0.6));
+seat.position.y = 0.5; seat.castShadow = true; wheelchairParts.add(seat);
+const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.45, 0.06), mat(0x555555, 0.6));
+backrest.position.set(0, 0.75, -0.22); backrest.castShadow = true; wheelchairParts.add(backrest);
+player.add(wheelchairParts);
+
+const legParts = new THREE.Group();
+for (const side of [-0.12, 0.12]) {
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.16), mat(0x424242, 0.7));
+  leg.position.set(side, 0.25, 0); leg.castShadow = true; legParts.add(leg);
+}
+legParts.visible = false;
+player.add(legParts);
+scene.add(player);
+
+// ==========================================================
+// 게임 상태
+// ==========================================================
+let isWheelchair = true;
+let heading = Math.PI;
+let camPitch = 0;
+let px = 0, pz = 16;
+let startTime = null;
+let finished = false;
+let msgTimer = null;
+let stamina = 100;
+let slideCooldownMsg = 0;
+let playing = false; // introToast 떠 있으면 false
+
+const keys = { up: false, down: false, left: false, right: false };
+
+// ---------- 모드/리셋/화면 이동 ----------
+function toggleMode() {
+  isWheelchair = !isWheelchair;
+  document.getElementById("modeBtn").textContent = isWheelchair ? "🚶 도보로" : "🧑‍🦽 휠체어로";
+  wheelchairParts.visible = isWheelchair;
+  legParts.visible = !isWheelchair;
+  pBody.position.y = isWheelchair ? 0.85 : 0.95;
+  pHead.position.y = isWheelchair ? 1.45 : 1.55;
+  showMessage(isWheelchair
+    ? "🧑‍🦽 휠체어 모드! 계단·턱은 못 오르고, 경사로에선 스페이스 연타!"
+    : "🚶 도보 모드! 계단도 턱도 자유롭게 다닐 수 있어요.", true);
+  resetGame();
+}
+
+function resetGame() {
+  px = 0; pz = 16; heading = Math.PI; camPitch = 0;
+  startTime = null; finished = false; stamina = 100;
+  document.getElementById("successPanel").style.display = "none";
+  updatePlayer();
+}
+
+function goSelect() {
+  if (document.pointerLockElement) document.exitPointerLock();
+  showScreen("selectScreen");
+}
+
+function startMap(mapId) {
+  buildMap(MAPS[mapId]);
+  isWheelchair = true;
+  wheelchairParts.visible = true; legParts.visible = false;
+  document.getElementById("modeBtn").textContent = "🚶 도보로";
+  resetGame();
+  document.getElementById("introMission").textContent = "❗ " + currentMap.mission;
+  document.getElementById("missionBody").innerHTML =
+    "<b>" + currentMap.name + "</b> (난이도 " + currentMap.diff + ")<br><br>" +
+    currentMap.mission + "<br><br>💡 " + currentMap.hint;
+  showScreen("gameScreen");
+  playing = false;
+  document.getElementById("introToast").style.display = "flex";
+  resize();
+}
+
+function dismissIntro() {
+  if (document.getElementById("introToast").style.display === "flex") {
+    document.getElementById("introToast").style.display = "none";
+    playing = true;
+  }
+}
+
+// ---------- 모달 ----------
+function openModal(id) { document.getElementById(id).style.display = "flex"; }
+function closeModal(id) { document.getElementById(id).style.display = "none"; }
+document.querySelectorAll(".modal").forEach(function (m) {
+  m.addEventListener("mousedown", function (e) { if (e.target === m) m.style.display = "none"; });
+});
+
+// ---------- 메시지 ----------
+function showMessage(text, isInfo) {
+  const el = document.getElementById("message");
+  el.textContent = text;
+  el.className = isInfo ? "info" : "";
+  el.style.display = "block";
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(function () { el.style.display = "none"; }, 2600);
+}
+
+// ==========================================================
+// 이동 + 게이지 (무한의 계단 방식!)
+// ==========================================================
+function movePlayer() {
+  if (finished || !playing || !currentMap) return;
+
+  const turnSpeed = 0.045;
+  const moveSpeed = 0.16;
+
+  if (keys.left) heading += turnSpeed;
+  if (keys.right) heading -= turnSpeed;
+
+  const onRamp = isWheelchair && isRampAt(px, pz);
+
+  // 게이지: 경사로 위 휠체어는 계속 닳음. 스페이스로 채워야 함!
+  if (onRamp) {
+    stamina -= currentMap.drain;
+    if (stamina <= 0) {
+      stamina = 0;
+      // 뒤로 주르륵 미끄러짐 (경사로 아래 방향 = +z)
+      const backZ = pz + 0.22;
+      if (heightAt(px, backZ) <= heightAt(px, pz) + 0.01) pz = backZ;
+      if (performance.now() - slideCooldownMsg > 1800) {
+        slideCooldownMsg = performance.now();
+        showMessage("😱 힘이 다 빠졌어요!! 스페이스를 연타해서 다시 밀어 올리세요!");
+      }
+    }
+  } else {
+    stamina = Math.min(100, stamina + 0.9);
+  }
+
+  let step = 0;
+  if (keys.up) step = moveSpeed;
+  if (keys.down) step = -moveSpeed * 0.6;
+
+  if (step > 0 && onRamp && stamina <= 0) step = 0; // 게이지 바닥나면 전진 불가
+
+  if (step !== 0) {
+    if (startTime === null) startTime = performance.now();
+
+    const nx = px + Math.sin(heading) * step;
+    const nz = pz + Math.cos(heading) * step;
+
+    if (nx < -38 || nx > 38 || nz < -38 || nz > 38) { updatePlayer(); return; }
+
+    const curH = heightAt(px, pz);
+    const newH = heightAt(nx, nz);
+    const maxStep = isWheelchair ? 0.06 : 0.5;
+
+    if (newH - curH > maxStep) {
+      if (isWheelchair) {
+        if (nz > -14 && nz <= -8 && Math.abs(nx) < 4) {
+          showMessage("🚫 계단이에요! 휠체어로는 단 한 칸도 못 올라요. " + currentMap.hint);
+        } else if (nz < 8 && nz > 4) {
+          showMessage("🚫 " + Math.round(currentMap.curbH * 100) + "cm 턱에 막혔어요! " + currentMap.hint);
+        } else {
+          showMessage("🚫 너무 높아서 올라갈 수 없어요. 다른 길을 찾아보세요!");
+        }
+      } else {
+        showMessage("🚫 너무 높아요! 계단이나 경사로를 이용하세요.");
+      }
+      updatePlayer(); return;
+    }
+    px = nx; pz = nz;
+  }
+
+  updatePlayer();
+
+  // 게이지 UI
+  const gw = document.getElementById("gaugeWrap");
+  const gf = document.getElementById("gaugeFill");
+  if (onRamp && !finished) {
+    gw.style.display = "block";
+    gf.style.width = stamina + "%";
+    gf.className = stamina > 55 ? "" : stamina > 25 ? "warn" : "danger";
+  } else {
+    gw.style.display = "none";
+  }
+
+  // 도착 확인
+  const h = heightAt(px, pz);
+  const dist = Math.sqrt(px * px + (pz + 20) * (pz + 20));
+  if (h > 1.9 && dist < 2.5) {
+    finished = true;
+    gw.style.display = "none";
+    const seconds = ((performance.now() - startTime) / 1000).toFixed(1);
+    document.getElementById("successTitle").textContent =
+      (isWheelchair ? "🧑‍🦽 휠체어로 도착! " : "🚶 도보로 도착! ") + seconds + "초";
+    document.getElementById("successText").innerHTML = isWheelchair
+      ? currentMap.successWheel
+      : "계단으로 금방 도착했네요!<br>이제 <b>🧑‍🦽 휠체어 모드</b>로 바꿔서 같은 길을 가보세요.<br>계단 앞에서, 그리고 경사로 위에서 어떤 일이 생기는지 직접 느껴보세요.";
+    document.getElementById("successPanel").style.display = "flex";
+  }
+}
+
+function updatePlayer() {
+  player.position.set(px, heightAt(px, pz), pz);
+  player.rotation.y = heading;
+}
+
+function updateCamera() {
+  const camDist = 7, camHeight = 4;
+  camera.position.x = px - Math.sin(heading) * camDist;
+  camera.position.z = pz - Math.cos(heading) * camDist;
+  camera.position.y = heightAt(px, pz) + camHeight + camPitch * 5;
+  camera.lookAt(px, heightAt(px, pz) + 1 - camPitch * 4, pz);
+}
+
+// ==========================================================
+// 입력: 키보드 / 마우스 시점 / 터치
+// ==========================================================
+const keyMap = {
+  ArrowUp: "up", KeyW: "up",
+  ArrowDown: "down", KeyS: "down",
+  ArrowLeft: "left", KeyA: "left",
+  ArrowRight: "right", KeyD: "right",
+};
+document.addEventListener("keydown", function (e) {
+  // 타이틀 화면: 아무 키 → 맵 선택
+  if (document.getElementById("titleScreen").classList.contains("active")) {
+    showScreen("selectScreen"); return;
+  }
+  if (!document.getElementById("gameScreen").classList.contains("active")) return;
+  dismissIntro();
+  if (e.code === "Space") {
+    e.preventDefault();
+    if (!e.repeat) stamina = Math.min(100, stamina + (currentMap ? currentMap.pump : 7));
+    return;
+  }
+  if (keyMap[e.code]) { keys[keyMap[e.code]] = true; e.preventDefault(); }
+});
+document.addEventListener("keyup", function (e) {
+  if (keyMap[e.code]) keys[keyMap[e.code]] = false;
+});
+
+// 타이틀 화면: 마우스 좌/우클릭 → 맵 선택
+const titleEl = document.getElementById("titleScreen");
+titleEl.addEventListener("mousedown", function () { showScreen("selectScreen"); });
+titleEl.addEventListener("contextmenu", function (e) { e.preventDefault(); showScreen("selectScreen"); });
+
+// 마우스 시점: 캔버스 클릭 → 포인터 잠금 (실패하면 드래그로도 동작)
+let dragging = false;
+canvas.addEventListener("mousedown", function () {
+  dismissIntro();
+  dragging = true;
+  if (canvas.requestPointerLock) { try { canvas.requestPointerLock(); } catch (e) {} }
+});
+document.addEventListener("mouseup", function () { dragging = false; });
+document.addEventListener("mousemove", function (e) {
+  const locked = document.pointerLockElement === canvas;
+  if (!locked && !dragging) return;
+  if (!document.getElementById("gameScreen").classList.contains("active")) return;
+  heading -= (e.movementX || 0) * 0.0035;
+  camPitch = THREE.MathUtils.clamp(camPitch + (e.movementY || 0) * 0.0022, -0.5, 0.6);
+});
+document.getElementById("introToast").addEventListener("mousedown", dismissIntro);
+
+// 터치 버튼
+document.querySelectorAll(".touch-pad button[data-key]").forEach(function (btn) {
+  const key = btn.dataset.key;
+  function press(e) { e.preventDefault(); dismissIntro(); keys[key] = true; }
+  function release(e) { e.preventDefault(); keys[key] = false; }
+  btn.addEventListener("touchstart", press);
+  btn.addEventListener("touchend", release);
+  btn.addEventListener("mousedown", press);
+  btn.addEventListener("mouseup", release);
+  btn.addEventListener("mouseleave", release);
+});
+const spaceTouch = document.getElementById("spaceTouch");
+["touchstart", "mousedown"].forEach(function (ev) {
+  spaceTouch.addEventListener(ev, function (e) {
+    e.preventDefault(); dismissIntro();
+    stamina = Math.min(100, stamina + (currentMap ? currentMap.pump : 7));
+  });
+});
+
+// ---------- 리사이즈 / HUD / 루프 ----------
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+
+function updateHUD() {
+  const mode = isWheelchair ? "🧑‍🦽 휠체어" : "🚶 도보";
+  const t = (startTime && !finished) ? ((performance.now() - startTime) / 1000).toFixed(1) : "0.0";
+  document.getElementById("statText").textContent = mode + " · ⏱️ " + t + "초";
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!document.getElementById("gameScreen").classList.contains("active")) return;
+  movePlayer();
+  updateCamera();
+  updateHUD();
+  renderer.render(scene, camera);
+}
+
+resize();
+animate();
+window.__gameStarted = true;
+</script>
+
+<script>
+// ==========================================================
+// 맵 선택 화면: 자체 SVG 제주 접근성 지도
+// (외부 지도 타일 서버 없이 동작해서 어디서든 항상 표시돼요)
+// 자료 출처 참고: 제주관광약자접근성안내센터 '이지제주(easyjeju.net)'
+// ==========================================================
+const SPOTS = [
+  { name: "함덕해수욕장", lat: 33.5434, lng: 126.6692, color: "#43a047", mapId: "hamdeok", diff: "하",
+    info: "<b>무장애 데크길</b>이 잘 조성되어 있고, <b>해변용 휠체어를 무료 대여</b>할 수 있어요. 장애인 화장실과 전용 주차구역도 있어요. 접근성의 모범 사례!" },
+  { name: "성산일출봉", lat: 33.4587, lng: 126.9425, color: "#fb8c00", mapId: "seongsan", diff: "중",
+    info: "정상 등반로는 <b>가파른 계단</b>이라 휠체어로는 갈 수 없어요. 해안 산책로 등 <b>일부 구간만</b> 접근 가능하고, 장애인 화장실이 있어요." },
+  { name: "동문시장", lat: 33.5122, lng: 126.5278, color: "#e53935", mapId: "dongmun", diff: "상",
+    info: "오래된 구시가지라 <b>높은 턱</b>과 <b>좁은 통로</b>가 많아요. 경사로가 있어도 멀리 돌아가야 하거나 가팔라서 이용이 매우 어려워요." },
+  { name: "사려니숲길 무장애나눔길", lat: 33.4190, lng: 126.6390, color: "#43a047",
+    info: "2020년 조성된 <b>무장애 나눔길</b>. 데크길 경사가 5~8도로 완만해서 관광약자도 안전하게 숲 체험을 할 수 있어요. (끝 지점에서 흙길로 바뀌니 입구로 되돌아와야 해요)" },
+  { name: "천지연폭포", lat: 33.2452, lng: 126.5544, color: "#43a047",
+    info: "입구부터 폭포 앞까지 <b>완만한 포장길</b>이라 휠체어로 폭포를 관람할 수 있어요." },
+  { name: "한림공원", lat: 33.3894, lng: 126.2400, color: "#43a047",
+    info: "<b>평지 위주 동선</b>에 길이 넓어 휠체어 이동이 편해요. <b>전동 휠체어 대여</b>도 가능해요." },
+  { name: "제주돌문화공원", lat: 33.4380, lng: 126.6680, color: "#43a047",
+    info: "넓은 주차장과 <b>완만한 경사로</b>, 대부분 평지로 구성돼 이동이 쉬워요. 주요 전시관도 휠체어 진입 가능." },
+  { name: "만장굴", lat: 33.5283, lng: 126.7715, color: "#e53935",
+    info: "동굴 내부의 <b>계단과 울퉁불퉁한 용암 바닥</b> 때문에 휠체어 접근이 불가능해요." },
+  { name: "제주국제평화센터", lat: 33.2470, lng: 126.4110, color: "#43a047",
+    info: "휠체어·유아차·<b>엘리베이터 등 편의시설</b>이 잘 설치된 실내 관광지예요. 비 오는 날에도 좋아요." },
+];
+
+const LNG_MIN = 126.05, LNG_MAX = 127.00;
+const LAT_MIN = 33.10, LAT_MAX = 33.62;
+const VB_W = 560, VB_H = 440;
+function toXY(lat, lng) {
+  return {
+    x: (lng - LNG_MIN) / (LNG_MAX - LNG_MIN) * (VB_W - 60) + 30,
+    y: (LAT_MAX - lat) / (LAT_MAX - LAT_MIN) * (VB_H - 120) + 60,
+  };
+}
+
+const svgNS = "http://www.w3.org/2000/svg";
+const mapDiv = document.getElementById("map");
+const svg = document.createElementNS(svgNS, "svg");
+svg.setAttribute("viewBox", "0 0 " + VB_W + " " + VB_H);
+
+// 제주도 실루엣 (단순화)
+const island = document.createElementNS(svgNS, "path");
+island.setAttribute("d",
+  "M62,235 C45,175 95,110 165,100 C235,88 305,75 385,88 " +
+  "C455,97 515,115 538,160 C558,200 548,255 522,285 " +
+  "C482,335 402,360 322,355 C242,352 152,345 102,315 C67,293 55,270 62,235 Z");
+island.setAttribute("fill", "#bfe3c8");
+island.setAttribute("stroke", "#8fbf9a");
+island.setAttribute("stroke-width", "2.5");
+svg.appendChild(island);
+
+// 한라산
+const hxy = toXY(33.362, 126.533);
+const halla = document.createElementNS(svgNS, "path");
+halla.setAttribute("d", "M" + (hxy.x - 13) + "," + (hxy.y + 11) + " L" + hxy.x + "," + (hxy.y - 13) + " L" + (hxy.x + 13) + "," + (hxy.y + 11) + " Z");
+halla.setAttribute("fill", "#8d9e8a");
+svg.appendChild(halla);
+const hLabel = document.createElementNS(svgNS, "text");
+hLabel.setAttribute("x", hxy.x); hLabel.setAttribute("y", hxy.y + 26);
+hLabel.setAttribute("text-anchor", "middle"); hLabel.setAttribute("font-size", "10");
+hLabel.setAttribute("fill", "#5d6d63");
+hLabel.textContent = "한라산";
+svg.appendChild(hLabel);
+
+let activePin = null;
+SPOTS.forEach(function (s) {
+  const p = toXY(s.lat, s.lng);
+  const g = document.createElementNS(svgNS, "g");
+  g.setAttribute("class", "map-pin");
+
+  if (s.mapId) { // 플레이 가능한 곳: 반짝이는 링
+    const ring = document.createElementNS(svgNS, "circle");
+    ring.setAttribute("class", "ring");
+    ring.setAttribute("cx", p.x); ring.setAttribute("cy", p.y); ring.setAttribute("r", 8);
+    ring.setAttribute("stroke", s.color);
+    g.appendChild(ring);
+  }
+
+  const dot = document.createElementNS(svgNS, "circle");
+  dot.setAttribute("class", "dot");
+  dot.setAttribute("cx", p.x); dot.setAttribute("cy", p.y); dot.setAttribute("r", 7.5);
+  dot.setAttribute("fill", s.color);
+  g.appendChild(dot);
+
+  const label = document.createElementNS(svgNS, "text");
+  label.setAttribute("x", p.x); label.setAttribute("y", p.y - 13);
+  label.setAttribute("text-anchor", "middle");
+  label.setAttribute("font-size", "10.5"); label.setAttribute("font-weight", "bold");
+  label.setAttribute("fill", "#2b3a33");
+  label.setAttribute("paint-order", "stroke");
+  label.setAttribute("stroke", "#fff"); label.setAttribute("stroke-width", "3.5");
+  label.textContent = (s.mapId ? "🎮 " : "") + s.name;
+  g.appendChild(label);
+
+  g.addEventListener("click", function () {
+    if (activePin) activePin.classList.remove("active");
+    g.classList.add("active");
+    activePin = g;
+    showSpotPanel(s);
+  });
+  svg.appendChild(g);
+});
+mapDiv.appendChild(svg);
+
+// 범례
+const legend = document.createElement("div");
+legend.className = "legend";
+legend.innerHTML =
+  '<span class="dotc" style="background:#43a047"></span>접근성 좋음 (난이도 하)<br>' +
+  '<span class="dotc" style="background:#fb8c00"></span>일부 구간만 가능 (난이도 중)<br>' +
+  '<span class="dotc" style="background:#e53935"></span>접근 어려움 (난이도 상)';
+mapDiv.appendChild(legend);
+
+function showSpotPanel(s) {
+  const panel = document.getElementById("spotPanel");
+  const badgeDiff = s.mapId
+    ? '<span class="badge" style="background:' + s.color + '">난이도 ' + s.diff + "</span>" +
+      '<span class="badge playable-badge">🎮 플레이 가능</span>'
+    : '<span class="badge" style="background:' + s.color + '">' +
+      (s.color === "#43a047" ? "접근성 좋음" : s.color === "#fb8c00" ? "일부 가능" : "접근 어려움") + "</span>";
+  panel.innerHTML =
+    '<div class="spot-name">' + s.name + "</div>" +
+    '<div class="badges">' + badgeDiff + "</div>" +
+    '<div class="spot-info">' + s.info +
+    (s.mapId ? "<br><br>🎮 <b>이곳을 배경으로 한 맵</b>에서 직접 휠체어 이동을 체험할 수 있어요!" : "") +
+    "</div>" +
+    '<button id="playBtn">▶ 이 맵 플레이하기</button>';
+  const btn = document.getElementById("playBtn");
+  if (s.mapId) {
+    btn.style.display = "block";
+    btn.addEventListener("click", function () { startMap(s.mapId); });
+  }
+}
+</script>
+
+
+</body>
+</html>
