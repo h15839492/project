@@ -1,1 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>휠체어 이동 체험 3D — 발표자료</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* single blue hue (~205°), every token below is only a saturation/lightness step of it */
+    --ink:#122431;         /* deepest surface */
+    --ink-2:#1b3648;       /* secondary dark surface */
+    --accent:#3f7fa3;      /* mid blue, main accent */
+    --accent-2:#1d4a63;    /* darker blue, for text/emphasis on light bg */
+    --paper:#eef4f8;       /* near-white blue, light surface */
+    --text-light:#a9c8db;  /* light blue-gray text on dark surfaces */
+    --text-dark:#284154;   /* dark blue-gray text on light surfaces */
+    --easy:#83b5d1;        /* lighter blue = easier */
+    --mid:#3f7fa3;         /* mid blue */
+    --hard:#173d54;        /* deep blue = harder */
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:'Noto Sans KR',sans-serif;
+    background:var(--ink-2);
+    color:var(--paper);
+    overflow-x:hidden;
+    scroll-snap-type:y mandatory;
+    scroll-behavior:smooth;
+  }
+  ::selection{ background:var(--accent); color:var(--ink-2); }
 
+  .deck{ height:100vh; overflow-y:scroll; scroll-snap-type:y mandatory; }
+  section.slide{
+    min-height:100vh; width:100%;
+    scroll-snap-align:start; scroll-snap-stop:always;
+    display:flex; flex-direction:column; justify-content:center;
+    position:relative; padding: 64px 8vw;
+    overflow:hidden;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.78rem; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--accent); font-weight:600; margin-bottom:18px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{ content:""; width:22px; height:2px; background:var(--accent); display:inline-block; }
+  h1,h2,h3{ font-family:'Noto Sans KR',sans-serif; font-weight:700; letter-spacing:-.01em; }
+
+  /* ---------- stepped-ramp signature motif ---------- */
+  .ramp-mark{ position:absolute; opacity:.9; pointer-events:none; }
+  svg.ramp-svg path{ vector-effect:non-scaling-stroke; }
+
+  /* ---------- nav dots ---------- */
+  .navdots{
+    position:fixed; right:26px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:12px; z-index:50;
+  }
+  .navdots button{
+    width:9px; height:9px; border-radius:50%; border:1.5px solid rgba(247,244,236,.45);
+    background:transparent; cursor:pointer; padding:0; transition:.25s;
+  }
+  .navdots button.active{ background:var(--accent); border-color:var(--accent); transform:scale(1.35); }
+
+  .kicker-line{ position:absolute; left:0; top:0; height:4px; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); z-index:60; transition:width .2s; }
+
+  /* ============ SLIDE 1 : TITLE ============ */
+  #s1{ background:
+      radial-gradient(circle at 82% 18%, rgba(63,127,163,.18), transparent 45%),
+      radial-gradient(circle at 10% 85%, rgba(63,127,163,.35), transparent 50%),
+      linear-gradient(160deg, var(--ink) 0%, var(--ink-2) 62%);
+  }
+  #s1 .stage{ display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap; }
+  #s1 .txt{ max-width:640px; }
+  #s1 h1{ font-size:clamp(2.6rem,6vw,4.6rem); line-height:1.08; color:var(--paper); }
+  #s1 h1 span{ color:var(--accent); }
+  #s1 .lede{ margin-top:22px; font-size:1.2rem; line-height:1.7; color:var(--text-light); font-weight:500; }
+  #s1 .byline{
+    margin-top:34px; font-family:'IBM Plex Mono',monospace; font-size:.85rem; color:var(--text-light);
+    display:inline-flex; align-items:center; gap:10px; border-top:1px solid rgba(255,255,255,.18); padding-top:14px;
+  }
+  #s1 .byline b{ color:var(--accent); }
+
+  .stairsfig{ width:260px; height:260px; flex-shrink:0; }
+
+  /* ============ SLIDE 2 : 기획 의도 ============ */
+  #s2{ background:var(--paper); color:var(--ink-2); }
+  #s2 .eyebrow{ color:var(--accent-2); }
+  #s2 h2{ font-size:clamp(2rem,4.2vw,3.1rem); color:var(--ink); max-width:760px; }
+  #s2 .lede{ margin-top:20px; font-size:1.08rem; line-height:1.8; max-width:620px; color:var(--text-dark); }
+  .compare{ margin-top:44px; display:grid; grid-template-columns:1fr 1fr; gap:22px; max-width:900px; }
+  .compare .card{ border-radius:18px; padding:26px 26px; position:relative; overflow:hidden; }
+  .compare .card.walk{ background:#e5f0f6; border:1.5px solid #c7dce7; }
+  .compare .card.wheel{ background:#d6e6ee; border:1.5px solid #aecddc; }
+  .compare .tag{ font-family:'IBM Plex Mono',monospace; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; }
+  .compare .card.walk .tag{ color:var(--easy); }
+  .compare .card.wheel .tag{ color:var(--accent-2); }
+  .compare .card h4{ font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:1.5rem; margin-top:8px; }
+  .compare .card p{ margin-top:10px; font-size:.93rem; line-height:1.7; color:var(--text-dark); }
+
+  /* ============ SLIDE 3 : 구조 ============ */
+  #s3{ background:linear-gradient(180deg,var(--ink),var(--ink-2)); }
+  #s3 h2{ font-size:clamp(2rem,4vw,3rem); color:var(--paper); }
+  .flow{ margin-top:52px; display:flex; align-items:stretch; gap:0; }
+  .flow .box{
+    flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.14); border-radius:16px;
+    padding:26px 22px; position:relative;
+  }
+  .flow .box .num{ font-family:'IBM Plex Mono',monospace; color:var(--accent); font-size:.78rem; font-weight:700; letter-spacing:.1em; }
+  .flow .box h4{ font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:1.35rem; margin-top:10px; color:var(--paper); }
+  .flow .box p{ margin-top:10px; font-size:.88rem; line-height:1.7; color:var(--text-light); }
+  .flow .arrow{ width:52px; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--accent); font-size:1.6rem; }
+
+  /* ============ SLIDE 4 : 지도 ============ */
+  #s4{ background:var(--paper); color:var(--ink-2); }
+  #s4 h2{ font-size:clamp(1.9rem,4vw,2.9rem); color:var(--ink); }
+  .maprow{ margin-top:36px; display:flex; gap:36px; align-items:center; }
+  .maprow .desc{ flex:1; max-width:420px; }
+  .maprow .desc p{ font-size:.98rem; line-height:1.8; color:var(--text-dark); margin-bottom:14px; }
+  .legend2{ display:flex; flex-direction:column; gap:8px; margin-top:18px; font-family:'IBM Plex Mono',monospace; font-size:.82rem; }
+  .legend2 .row{ display:flex; align-items:center; gap:10px; }
+  .legend2 .dot{ width:11px; height:11px; border-radius:50%; }
+  .source{ margin-top:20px; font-size:.76rem; color:rgba(58,58,53,.6); line-height:1.6; }
+
+  /* ============ SLIDE 5 : 코스 비교 ============ */
+  #s5{ background:linear-gradient(170deg,var(--ink-2) 0%, var(--ink) 100%); }
+  #s5 h2{ font-size:clamp(1.9rem,4vw,2.9rem); color:var(--paper); }
+  .courses{ margin-top:42px; display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .course{ border-radius:18px; padding:24px 22px; background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.12); }
+  .course .diffchip{ display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:.72rem; font-weight:700; padding:4px 12px; border-radius:999px; color:var(--ink); }
+  .course h4{ font-family:'Noto Sans KR',sans-serif; font-weight:700; font-size:1.28rem; margin-top:14px; color:var(--paper); }
+  .course .slope{ margin-top:14px; font-family:'IBM Plex Mono',monospace; font-size:.78rem; color:var(--accent); }
+  .course p{ margin-top:10px; font-size:.85rem; line-height:1.7; color:var(--text-light); }
+
+  /* ============ SLIDE 6 & 7: 메커닉 ============ */
+  .mech-bg{ background:var(--paper); color:var(--ink-2); }
+  .mech-bg h2{ font-size:clamp(1.9rem,4vw,2.9rem); color:var(--ink); }
+  .mech-grid{ margin-top:40px; display:grid; grid-template-columns:1.1fr 1fr; gap:48px; align-items:center; }
+  .mech-grid p.lede{ font-size:1.02rem; line-height:1.85; color:var(--text-dark); }
+  .rule-list{ margin-top:20px; display:flex; flex-direction:column; gap:12px; }
+  .rule-list .r{ display:flex; gap:12px; align-items:flex-start; font-size:.92rem; line-height:1.7; color:var(--text-dark); }
+  .rule-list .r b{ color:var(--accent-2); font-family:'IBM Plex Mono',monospace; font-size:.78rem; flex-shrink:0; margin-top:3px; }
+  .visualbox{ background:var(--ink); border-radius:20px; padding:26px; min-height:280px; display:flex; align-items:center; justify-content:center; }
+
+  /* gauge visual for slide 7 */
+  .gaugewrap{ width:100%; }
+  .gaugewrap .label{ font-family:'IBM Plex Mono',monospace; color:var(--text-light); font-size:.78rem; margin-bottom:10px; }
+  .gaugetrack{ height:26px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; border:2px solid rgba(255,255,255,.25); }
+  .gaugefill{ height:100%; width:62%; background:linear-gradient(90deg,#83b5d1,#3f7fa3,#173d54); border-radius:999px; }
+  .drainrates{ margin-top:22px; display:flex; flex-direction:column; gap:10px; }
+  .drainrates .dr{ display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono',monospace; font-size:.76rem; color:var(--text-light); }
+  .drainrates .bar{ height:8px; border-radius:4px; background:var(--accent); }
+
+  /* ============ SLIDE 7 : 클로징 ============ */
+  #s7{
+    background: radial-gradient(circle at 30% 30%, rgba(63,127,163,.22), transparent 55%), var(--ink-2);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+  }
+  #s7 .wrap{ max-width:900px; }
+  #s7 .closing-title{ font-size:clamp(2.3rem,5.4vw,4rem); line-height:1.4; color:var(--paper); }
+
+  @media (max-width: 860px){
+    .compare, .maprow, .mech-grid{ grid-template-columns:1fr !important; display:flex; flex-direction:column; }
+    .flow{ flex-direction:column; }
+    .flow .arrow{ transform:rotate(90deg); padding:6px 0; }
+    .courses{ grid-template-columns:1fr; }
+    section.slide{ padding:56px 6vw; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="kicker-line" id="kickerLine"></div>
+<div class="navdots" id="navdots"></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1. TITLE -->
+  <section class="slide" id="s1">
+    <div class="ramp-mark" style="right:-40px; bottom:-40px; width:420px; opacity:.5;">
+      <svg viewBox="0 0 400 240" class="ramp-svg" width="100%">
+        <polyline points="10,230 10,180 90,180 90,130 170,130 170,80 250,80 250,30 390,30"
+          fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.14"/>
+        <path d="M10,230 L390,30" stroke="#3f7fa3" stroke-width="3" stroke-opacity="0.55" fill="none"/>
+      </svg>
+    </div>
+    <div class="stage">
+      <div class="txt">
+        <div class="eyebrow">체험형 접근성 시뮬레이션 · 3D WEB</div>
+        <h1>휠체어 이동 체험 <span>3D</span></h1>
+        <p class="lede">휠체어로 이동하며 접근성 격차를 체감하는 3D 체험 프로젝트</p>
+        <div class="byline">MADE BY&nbsp;&nbsp;<b>강승희</b></div>
+      </div>
+      <svg class="stairsfig" viewBox="0 0 200 200">
+        <!-- basalt-stone wheelchair icon, simplified -->
+        <circle cx="100" cy="100" r="92" fill="rgba(63,127,163,0.18)"/>
+        <g transform="translate(48,58)">
+          <circle cx="20" cy="70" r="26" fill="none" stroke="#3f7fa3" stroke-width="6"/>
+          <circle cx="90" cy="86" r="14" fill="none" stroke="#3f7fa3" stroke-width="5"/>
+          <rect x="18" y="18" width="46" height="34" rx="6" fill="#dbe9f0"/>
+          <circle cx="34" cy="6" r="10" fill="#dbe9f0"/>
+          <line x1="44" y1="52" x2="90" y2="72" stroke="#3f7fa3" stroke-width="6" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 2. 기획 의도 -->
+  <section class="slide" id="s2">
+    <div class="eyebrow">WHY</div>
+    <h2>기획 의도</h2>
+    <p class="lede">통계만으로는 접근성 격차를 체감하기 어렵습니다. 같은 길을 <b>도보 모드</b>와
+    <b>휠체어 모드</b>로 걸어보며 그 격차를 전달합니다.</p>
+    <div class="compare">
+      <div class="card walk">
+        <div class="tag">🚶 WALK MODE</div>
+        <h4>몇 초면 도착</h4>
+        <p>계단과 턱을 자유롭게 오르내리며, 목표 지점까지 거의 직선으로 도달합니다.</p>
+      </div>
+      <div class="card wheel">
+        <div class="tag">🧑‍🦽 WHEELCHAIR MODE</div>
+        <h4>같은 곳, 다른 여정</h4>
+        <p>턱 하나에도 막히고, 경사로를 찾아 멀리 돌아가며, 힘이 다하면 뒤로 미끄러집니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. 전체 구조 -->
+  <section class="slide" id="s3">
+    <div class="eyebrow">STRUCTURE</div>
+    <h2>세 단계로 구성된 화면</h2>
+    <div class="flow">
+      <div class="box">
+        <div class="num">01</div>
+        <h4>타이틀 화면</h4>
+        <p>둥실거리는 ♿ 이모지와 문구로 시작합니다. 아무 키나 클릭하면 다음 단계로 넘어갑니다.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="box">
+        <div class="num">02</div>
+        <h4>맵 선택 화면</h4>
+        <p>제주 지도에서 핀을 눌러 접근성 정보를 확인하고, 플레이 가능한 3곳 중 하나를 선택합니다.</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="box">
+        <div class="num">03</div>
+        <h4>게임 화면</h4>
+        <p>3D 공간에서 1인칭 시점으로 이동하며, 미션 깃발에 도착하면 체험 소감이 표시됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. 지도 -->
+  <section class="slide" id="s4">
+    <div class="eyebrow">MAP SELECT</div>
+    <h2>지도에서 코스를 선택합니다</h2>
+    <div class="maprow">
+      <div class="desc">
+        <p>제주도 지도 위 9개 지점에 핀이 찍혀 있습니다. 핀을 클릭하면 해당 장소의 <b>접근성 정보</b>가 패널에 뜨고, <b>테두리가 반짝이는 3곳</b>은 실제로 3D 체험을 플레이할 수 있습니다.</p>
+        <div class="legend2">
+          <div class="row"><span class="dot" style="background:#83b5d1"></span>접근성 좋음 — 함덕해수욕장 외</div>
+          <div class="row"><span class="dot" style="background:#3f7fa3"></span>일부 구간만 가능 — 성산일출봉</div>
+          <div class="row"><span class="dot" style="background:#173d54"></span>접근 어려움 — 동문시장, 만장굴</div>
+        </div>
+        <p class="source">※ 접근성 정보는 제주관광약자접근성안내센터 '이지제주(easyjeju.net)' 등 공개 자료를 참고해 학습용으로 재구성한 예시입니다.</p>
+      </div>
+      <svg viewBox="0 0 560 440" style="flex:1.1; max-width:520px; border-radius:18px; background:linear-gradient(180deg,#e3eef4,#c7dde8);">
+        <path d="M62,235 C45,175 95,110 165,100 C235,88 305,75 385,88 C455,97 515,115 538,160 C558,200 548,255 522,285 C482,335 402,360 322,355 C242,352 152,345 102,315 C67,293 55,270 62,235 Z" fill="#d6e6ee" stroke="#a9c4d3" stroke-width="2.5"/>
+        <circle cx="300" cy="230" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="470" cy="175" r="9" fill="#3f7fa3" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="150" cy="255" r="9" fill="#173d54" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="230" cy="150" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="120" cy="330" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="65" cy="200" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="330" cy="120" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="430" cy="240" r="9" fill="#173d54" stroke="#fff" stroke-width="2.5"/>
+        <circle cx="180" cy="310" r="9" fill="#83b5d1" stroke="#fff" stroke-width="2.5"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 5. 코스 비교 -->
+  <section class="slide" id="s5">
+    <div class="eyebrow">3 COURSES</div>
+    <h2>코스별 난이도</h2>
+    <div class="courses">
+      <div class="course">
+        <span class="diffchip" style="background:#83b5d1">난이도 하</span>
+        <h4>함덕해수욕장 데크길</h4>
+        <div class="slope">폭 5m · 경사 약 10% · 턱과 경사로 일직선</div>
+        <p>경사로가 넓고 완만하며 턱 경사로와 바로 연결됩니다.</p>
+      </div>
+      <div class="course">
+        <span class="diffchip" style="background:#3f7fa3">난이도 중</span>
+        <h4>성산일출봉 전망 데크</h4>
+        <div class="slope">폭 4m · 경사 약 14% · 경사로가 14m 밖</div>
+        <p>경사로가 턱 경사로에서 14m 떨어져 있고, 기준(1/12)보다 가파릅니다.</p>
+      </div>
+      <div class="course">
+        <span class="diffchip" style="background:#173d54; color:var(--paper);">난이도 상</span>
+        <h4>동문시장 구시가지 골목</h4>
+        <div class="slope">폭 3m · 경사 약 20% · 반대편 끝까지 왕복</div>
+        <p>턱 경사로는 왼쪽 끝, 목적지 경사로는 오른쪽 끝에 있습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. 어떻게 플레이하는지 -->
+  <section class="slide mech-bg" id="s6">
+    <div class="eyebrow">HOW TO PLAY</div>
+    <h2>플레이 방법</h2>
+    <div class="mech-grid">
+      <div>
+        <div class="rule-list">
+          <div class="r"><b>이동</b>W A S D / 방향키로 앞뒤 이동, 좌우 회전</div>
+          <div class="r"><b>시점</b>화면을 클릭하면 마우스로 시점을 둘러볼 수 있습니다</div>
+          <div class="r"><b>모드 전환</b>🚶 도보 ↔ 🧑‍🦽 휠체어 버튼으로 같은 길을 다르게 체험</div>
+          <div class="r"><b>경사로</b>스페이스바를 연타해서 휠체어를 밀어 올려야 합니다</div>
+        </div>
+        <p class="lede" style="margin-top:22px;">경사로 위에서는 힘이 계속 소모됩니다. 스페이스를 멈추면 게이지가 바닥나 <b>뒤로 미끄러지며</b>, 난이도가 높은 코스일수록 훨씬 빠르게 지칩니다.</p>
+      </div>
+      <div class="visualbox">
+        <div class="gaugewrap">
+          <div class="label">💪 SPACE 연타 · 코스별 힘 소모 속도</div>
+          <div class="gaugetrack"><div class="gaugefill"></div></div>
+          <div class="drainrates">
+            <div class="dr"><span>함덕 0.10</span><div class="bar" style="width:30px; background:#83b5d1;"></div></div>
+            <div class="dr"><span>성산 0.45</span><div class="bar" style="width:110px; background:#3f7fa3;"></div></div>
+            <div class="dr"><span>동문 0.95</span><div class="bar" style="width:200px; background:#173d54;"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. 클로징 -->
+  <section class="slide" id="s7">
+    <div class="wrap">
+      <h2 class="closing-title">이동권은 누구에게나<br>보장될 권리입니다</h2>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const deck = document.getElementById('deck');
+  const navdots = document.getElementById('navdots');
+  const kickerLine = document.getElementById('kickerLine');
+
+  slides.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.setAttribute('aria-label', 'slide ' + (i+1));
+    b.addEventListener('click', () => s.scrollIntoView({behavior:'smooth'}));
+    navdots.appendChild(b);
+  });
+  const dots = Array.from(navdots.children);
+
+  function updateActive(){
+    const scrollTop = deck.scrollTop;
+    let idx = 0;
+    slides.forEach((s,i) => { if (s.offsetTop - scrollTop <= window.innerHeight * 0.5) idx = i; });
+    dots.forEach((d,i) => d.classList.toggle('active', i === idx));
+    kickerLine.style.width = ((idx+1)/slides.length*100) + '%';
+  }
+  deck.addEventListener('scroll', updateActive);
+  updateActive();
+
+  document.addEventListener('keydown', (e) => {
+    const scrollTop = deck.scrollTop;
+    let idx = 0;
+    slides.forEach((s,i) => { if (s.offsetTop - scrollTop <= window.innerHeight * 0.5) idx = i; });
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      e.preventDefault();
+      if (slides[idx+1]) slides[idx+1].scrollIntoView({behavior:'smooth'});
+    } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      if (slides[idx-1]) slides[idx-1].scrollIntoView({behavior:'smooth'});
+    }
+  });
+</script>
+
+</body>
+</html>
